@@ -42,6 +42,9 @@ data TaskOrToken = Task String | Token String
 
 -- | Activities are linked together into a workflow.
 -- TODO Check activity names are unique.
+-- TODO A workflow should be parametrized by records, token and tasks.
+-- Different engines for different workflow types can be offered by this
+-- library, or constructed by users.
 data Workflow = Workflow
   { workflowInitial :: Activity
   , workflowTransitions :: [((Activity, Token), Activity)]
@@ -50,9 +53,7 @@ data Workflow = Workflow
 
 -- | `Step` represents the record after an activity has been done, and before
 -- the transition has been followed.
-data Step =
-    Step Activity Object (TaskOrToken)
-  | Final Activity Object (TaskOrToken)
+data Step = Step Activity Object (TaskOrToken)
   deriving Show
 
 -- | Run an activity handler on a record.
@@ -75,11 +76,7 @@ continue w@Workflow{..} a s' t' = do
 -- | Perform a single step in the workflow.
 step w@Workflow{..} a s = do
   (s', t') <- runActivity a s
-  let current =
-        if activityName a `elem` map activityName workflowFinal
-        then Final
-        else Step
-  return $ current a s' t'
+  return $ Step a s' t'
 
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
@@ -90,11 +87,14 @@ run w s = do
 
   where
 
+  final x = activityName x `elem` map activityName (workflowFinal w)
   loop current = case current of
-    Step a s' (Task task) -> runTask task >>= continue w a s' >>= loop
-    Step a s' (Token t') -> continue w a s' t' >>= loop
-    Final _ s' (Task task) -> runTask task >> return s'
-    Final _ s' (Token _) -> return s'
+    Step a s' (Task task)
+      | final a -> runTask task >> return s'
+      | otherwise -> runTask task >>= continue w a s' >>= loop
+    Step a s' (Token t')
+      | final a -> return s'
+      | otherwise -> continue w a s' t' >>= loop
 
 runTask name = do
   putStrLn $ "Running task " ++ name ++ "..."
