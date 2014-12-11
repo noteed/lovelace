@@ -12,7 +12,10 @@ import qualified Data.Text as T
 
 -- | Run the example workflow.
 main :: IO ()
-main = run workflow (record []) >>= print
+main = do
+  s <- run workflow (record [])
+  print s
+  print $ serialize s
 
 -- | Activities manipulates objects.
 data Activity = Activity
@@ -47,14 +50,16 @@ data TaskOrToken = Task String | Token String
 -- Different engines for different workflow types can be offered by this
 -- library, or constructed by users.
 data Workflow = Workflow
-  { workflowInitial :: Activity
+  { workflowName :: String
+  , workflowInitial :: Activity
   , workflowTransitions :: [((Activity, Token), Activity)]
   , workflowFinal :: [Activity]
   }
+  deriving Show
 
 -- | `Step` represents the record after an activity has been done, and before
 -- the transition has been followed.
-data Step = Step Activity Object (TaskOrToken)
+data Step = Step Workflow Activity Object (TaskOrToken)
   deriving Show
 
 -- | Run an activity handler on a record.
@@ -77,7 +82,7 @@ continue w@Workflow{..} a r' t' = do
 -- | Perform a single step in the workflow.
 step w@Workflow{..} a r = do
   (r', t') <- runActivity a r
-  return $ Step a r' t'
+  return $ Step w a r' t'
 
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
@@ -90,10 +95,10 @@ run w r = do
 
   final x = activityName x `elem` map activityName (workflowFinal w)
   loop current = case current of
-    Step a r' (Task task)
-      | final a -> runTask task >>= return . Step a r' . Token
+    Step _ a r' (Task task)
+      | final a -> runTask task >>= return . Step w a r' . Token
       | otherwise -> runTask task >>= continue w a r' >>= loop
-    Step a r' (Token t')
+    Step _ a r' (Token t')
       | final a -> return current
       | otherwise -> continue w a r' t' >>= loop
 
@@ -112,9 +117,10 @@ lookupActivity a t (((b,t'),b''):ts)
 -- This means that given a workflow definition and a record, it is possible
 -- to continue to step the record through the workflow. All the state is
 -- self-contained.
-serialize :: Workflow -> Step -> Object
-serialize Workflow{..} (Step a r t) =
-  H.insert "current_activity" (f $ activityName a)
+serialize :: Step -> Object
+serialize (Step w a r t) =
+  H.insert "workflow_name" (f $ workflowName w)
+  . H.insert "current_activity" (f $ activityName a)
   . (case t of { Task x -> H.insert "waiting_task" (f x) ; _ -> H.delete "waiting_task" })
   $ r
   where f = String . T.pack
@@ -161,4 +167,4 @@ transitions = [
     ((third, "FINAL"), final)
   ]
 
-workflow = Workflow initial transitions [final]
+workflow = Workflow "example" initial transitions [final]
