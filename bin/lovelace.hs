@@ -8,6 +8,7 @@ import Data.Aeson
 import Data.Aeson.Types (Pair)
 import Data.Attoparsec.Number (Number(..))
 import qualified Data.HashMap.Strict as H
+import qualified Data.Text as T
 
 -- | Run the example workflow.
 main :: IO ()
@@ -57,44 +58,44 @@ data Step = Step Activity Object (TaskOrToken)
   deriving Show
 
 -- | Run an activity handler on a record.
-runActivity Activity{..} s = do
+runActivity Activity{..} r = do
   putStr activityName
   putStr " - "
   putStrLn activityDescription
-  activityHandler s
+  activityHandler r
 
 -- | Start a workflow, performing a single step. Use `run` if the whole
 -- workflow must be traversed directly.
-start w@Workflow{..} s = step w workflowInitial s
+start w@Workflow{..} r = step w workflowInitial r
 
 -- | Continue a workflow, after some steps have been done.
-continue w@Workflow{..} a s' t' = do
+continue w@Workflow{..} a r' t' = do
   case lookupActivity a t' workflowTransitions of
     Nothing -> error "No such transition."
-    Just a' -> step w a' s'
+    Just a' -> step w a' r'
 
 -- | Perform a single step in the workflow.
-step w@Workflow{..} a s = do
-  (s', t') <- runActivity a s
-  return $ Step a s' t'
+step w@Workflow{..} a r = do
+  (r', t') <- runActivity a r
+  return $ Step a r' t'
 
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
 -- activities, if any.
-run w s = do
-  current <- start w s
+run w r = do
+  current <- start w r
   loop current
 
   where
 
   final x = activityName x `elem` map activityName (workflowFinal w)
   loop current = case current of
-    Step a s' (Task task)
-      | final a -> runTask task >> return s'
-      | otherwise -> runTask task >>= continue w a s' >>= loop
-    Step a s' (Token t')
-      | final a -> return s'
-      | otherwise -> continue w a s' t' >>= loop
+    Step a r' (Task task)
+      | final a -> runTask task >>= return . Step a r' . Token
+      | otherwise -> runTask task >>= continue w a r' >>= loop
+    Step a r' (Token t')
+      | final a -> return current
+      | otherwise -> continue w a r' t' >>= loop
 
 runTask name = do
   putStrLn $ "Running task " ++ name ++ "..."
@@ -106,6 +107,17 @@ lookupActivity _ _ [] = Nothing
 lookupActivity a t (((b,t'),b''):ts)
   | activityName a == activityName b && t == t' = Just b''
   | otherwise = lookupActivity a t ts
+
+-- | The workflow state tied to a record can be saved in the record itself.
+-- This means that given a workflow definition and a record, it is possible
+-- to continue to step the record through the workflow. All the state is
+-- self-contained.
+serialize :: Workflow -> Step -> Object
+serialize Workflow{..} (Step a r t) =
+  H.insert "current_activity" (f $ activityName a)
+  . (case t of { Task x -> H.insert "waiting_task" (f x) ; _ -> H.delete "waiting_task" })
+  $ r
+  where f = String . T.pack
 
 ----------------------------------------------------------------------
 -- Example workflow.
