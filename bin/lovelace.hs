@@ -87,20 +87,18 @@ step w@Workflow{..} a r = do
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
 -- activities, if any.
-run w r = do
-  current <- start w r
-  loop current
+run w r = start w r >>= loop
 
   where
 
   final x = activityName x `elem` map activityName (workflowFinal w)
-  loop current = case current of
-    Step _ a r' (Task task)
-      | final a -> runTask task >>= return . Step w a r' . Token
-      | otherwise -> runTask task >>= continue w a r' >>= loop
-    Step _ a r' (Token t')
-      | final a -> return current
-      | otherwise -> continue w a r' t' >>= loop
+  loop (Step _ a r' t) = do
+    t' <- case t of
+      Task task -> runTask task
+      Token t' -> return t'
+    if final a
+      then return $ Step w a r (Token t')
+      else continue w a r' t' >>= loop
 
 runTask name = do
   putStrLn $ "Running task " ++ name ++ "..."
