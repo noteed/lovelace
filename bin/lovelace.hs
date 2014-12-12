@@ -23,7 +23,7 @@ data Activity = Activity
     -- ^ An activity is identified (within a given workflow) by its name.
   , activityDescription :: String
     -- ^ Human-friendly description of the activity.
-  , activityHandler :: Object -> IO (Object, TaskOrToken)
+  , activityHandler :: Object -> (Object, TaskOrToken)
     -- ^ Given a record (or state) (TODO and a token), compute a new state
     -- and return a new token or a task (which will generate a token).
   }
@@ -67,7 +67,7 @@ runActivity Activity{..} r = do
   putStr activityName
   putStr " - "
   putStrLn activityDescription
-  activityHandler r
+  return $ activityHandler r
 
 -- | Start a workflow, performing a single step. Use `run` if the whole
 -- workflow must be traversed directly.
@@ -102,7 +102,15 @@ run w r = start w r >>= loop
 
 runTask name = do
   putStrLn $ "Running task " ++ name ++ "..."
-  return "FINAL"
+  if name == "ASK_INPUT"
+    then do
+      line <- getLine
+      if line == "bye"
+        then return "BYE"
+        else do
+          putStrLn line
+          return "SECOND"
+    else return "FINAL"
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: Activity -> Token -> [((Activity, Token), Activity)] -> Maybe Activity
@@ -134,29 +142,23 @@ record = H.fromList
 int = Number . I
 
 initial = Activity "INIT"
-  "Initialization..." $ \_ -> do
-  return (record [("count", int 0)], Token "SECOND")
+  "Initialization..." $
+  const (record [("count", int 0)], Token "SECOND")
 
 second = Activity "SECOND"
-  "Get input (`bye` to exit)..." $ \state -> do
+  "Get input (`bye` to exit)..." $ \state ->
   let Number (I count) = maybe (error "No count.") id $ H.lookup "count" state
       state' = record [("count", int (count + 1))]
-  line <- getLine
-  if line == "bye"
-    then return (state', Token "BYE")
-    else do
-      putStrLn line
-      return (state', Token "SECOND")
+  in (state', Task "ASK_INPUT")
 
 third = Activity "THIRD"
-  "Will wait for task completion..." $ \state -> do
-  return (state, Task "TASK")
+  "Will wait for task completion..." $ \state ->
+  (state, Task "TASK")
 
 final = Activity "FINAL"
-  "End of workflow." $ \state -> do
+  "End of workflow." $ \state ->
   let Number (I count) = maybe (error "No count.") id $ H.lookup "count" state
-  putStrLn $ "Count: " ++ show count
-  return (state, Token "STOP")
+  in (state, Token "STOP")
 
 transitions = [
     ((initial, "SECOND"), second),
