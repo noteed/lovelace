@@ -29,6 +29,7 @@ instance Show (Activity t) where
 -- workflow.
 class Task t where
   serializeTask :: t -> String
+  runTask :: t -> IO String
 
 -- | Transitions are identified by a Token. Currently a token is simply a
 -- string but this should be replaced by an object.
@@ -95,18 +96,6 @@ run w r = start w r >>= loop
     if final a
       then return $ Step w a r' (Token t')
       else continue w a r' t' >>= loop
-
-runTask name = do
-  putStrLn $ "Running task " ++ name ++ "..."
-  if name == "ASK_INPUT"
-    then do
-      line <- getLine
-      if line == "bye"
-        then return "BYE"
-        else do
-          putStrLn line
-          return "SECOND"
-    else return "FINAL"
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: Activity t -> Token -> [((Activity t, Token), Activity t)] -> Maybe (Activity t)
