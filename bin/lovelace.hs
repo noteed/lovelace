@@ -1,7 +1,9 @@
 -- | Simple workflow engine. Just playing around...
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-} -- For instance Task String
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeSynonymInstances #-} -- For instance Task String
 module Main (main) where
 
 import Data.Aeson
@@ -17,31 +19,32 @@ main = do
   print s
   print $ serialize s
 
--- | Activities manipulates objects.
-data Activity = Activity
+-- | Activities manipulates objects. They are parametrized by task type.
+data Activity t = Activity
   { activityName :: String
     -- ^ An activity is identified (within a given workflow) by its name.
   , activityDescription :: String
     -- ^ Human-friendly description of the activity.
-  , activityHandler :: Object -> (Object, TaskOrToken)
+  , activityHandler :: Object -> (Object, TaskOrToken t)
     -- ^ Given a record (or state) (TODO and a token), compute a new state
     -- and return a new token or a task (which will generate a token).
   }
 
-instance Show Activity where
+instance Show (Activity t) where
   show Activity{..} = activityName
+
+-- | Request the engine to do some asynchronous task. Once the task is
+-- completed, the engine will supply a regular token to continue the
+-- workflow.
+class Task t where
+  serializeTask :: t -> String
 
 -- | Transitions are identified by a Token. Currently a token is simply a
 -- string but this should be replaced by an object.
 type Token = String
 
--- | Request the engine to do some asynchronous task. Once the task is
--- completed, the engine will supply a regular token to continue the
--- workflow.
-type Task = String
-
 -- | Similar to `Either` but makes things more clear.
-data TaskOrToken = Task String | Token String
+data TaskOrToken t = Task t | Token String
   deriving Show
 
 -- | Activities are linked together into a workflow.
@@ -49,17 +52,19 @@ data TaskOrToken = Task String | Token String
 -- TODO A workflow should be parametrized by records, token and tasks.
 -- Different engines for different workflow types can be offered by this
 -- library, or constructed by users.
-data Workflow = Workflow
+data Workflow t = Workflow
   { workflowName :: String
-  , workflowInitial :: Activity
-  , workflowTransitions :: [((Activity, Token), Activity)]
-  , workflowFinal :: [Activity]
+  , workflowInitial :: Activity t
+  , workflowTransitions :: [((Activity t, Token), Activity t)]
+  , workflowFinal :: [Activity t]
   }
   deriving Show
 
 -- | `Step` represents the record after an activity has been done, and before
--- the transition has been followed.
-data Step = Step Workflow Activity Object (TaskOrToken)
+-- the transition has been followed. This also represent a "more complete"
+-- record, i.e. which includes its worflow-related state. See the `serialize`
+-- function below.
+data Step t = Step (Workflow t) (Activity t) Object (TaskOrToken t)
   deriving Show
 
 -- | Run an activity handler on a record.
@@ -113,7 +118,7 @@ runTask name = do
     else return "FINAL"
 
 -- | Find the next activity, given the current activity and a token.
-lookupActivity :: Activity -> Token -> [((Activity, Token), Activity)] -> Maybe Activity
+lookupActivity :: Activity t -> Token -> [((Activity t, Token), Activity t)] -> Maybe (Activity t)
 lookupActivity _ _ [] = Nothing
 lookupActivity a t (((b,t'),b''):ts)
   | activityName a == activityName b && t == t' = Just b''
@@ -123,13 +128,16 @@ lookupActivity a t (((b,t'),b''):ts)
 -- This means that given a workflow definition and a record, it is possible
 -- to continue to step the record through the workflow. All the state is
 -- self-contained.
-serialize :: Step -> Object
+serialize :: Task t => Step t -> Object
 serialize (Step w a r t) =
   H.insert "workflow_name" (f $ workflowName w)
   . H.insert "current_activity" (f $ activityName a)
-  . (case t of { Task x -> H.insert "waiting_task" (f x) ; _ -> H.delete "waiting_task" })
+  . (case t of { Task x -> H.insert "waiting_task" (f $ serializeTask x) ; _ -> H.delete "waiting_task" })
   $ r
   where f = String . T.pack
+
+instance Task String where
+  serializeTask = id
 
 ----------------------------------------------------------------------
 -- Example workflow.
