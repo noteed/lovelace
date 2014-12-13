@@ -93,7 +93,7 @@ run w r = start w r >>= loop
       Task task -> runTask task
       Token t' -> return t'
     if final a
-      then return $ Step w a r (Token t')
+      then return $ Step w a r' (Token t')
       else continue w a r' t' >>= loop
 
 runTask name = do
