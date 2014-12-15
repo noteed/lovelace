@@ -29,7 +29,6 @@ instance Show (Activity t) where
 -- workflow.
 class Task t where
   serializeTask :: t -> String
-  runTask :: t -> IO String
 
 -- | Transitions are identified by a Token. Currently a token is simply a
 -- string but this should be replaced by an object.
@@ -73,7 +72,8 @@ start w@Workflow{..} r = step w workflowInitial r
 -- | Continue a workflow, after some steps have been done.
 continue w@Workflow{..} a r' t' = do
   case lookupActivity a t' workflowTransitions of
-    Nothing -> error "No such transition."
+    Nothing -> error $ "No such transition.\nActivity: " ++ activityName a
+      ++ "\nTransition: " ++ t'
     Just a' -> step w a' r'
 
 -- | Perform a single step in the workflow.
@@ -84,18 +84,19 @@ step w@Workflow{..} a r = do
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
 -- activities, if any.
-run w r = start w r >>= loop
+-- The function to run a task can modify the engine state.
+run runTask engineState w r = start w r >>= loop engineState
 
   where
 
   final x = activityName x `elem` map activityName (workflowFinal w)
-  loop (Step _ a r' t) = do
-    t' <- case t of
-      Task task -> runTask task
-      Token t' -> return t'
+  loop s (Step _ a r' t) = do
+    (s', t') <- case t of
+      Task task -> runTask s task
+      Token t' -> return (s, t')
     if final a
       then return $ Step w a r' (Token t')
-      else continue w a r' t' >>= loop
+      else continue w a r' t' >>= loop s'
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: Activity t -> Token -> [((Activity t, Token), Activity t)] -> Maybe (Activity t)

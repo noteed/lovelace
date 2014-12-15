@@ -13,7 +13,7 @@ import Lovelace
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  s <- run workflow (record [])
+  s <- run runTask () workflow (record [])
   print s
   print $ serialize s
 
@@ -23,17 +23,6 @@ main = do
 
 instance Task String where
   serializeTask = id
-  runTask name = do
-    putStrLn $ "Running task " ++ name ++ "..."
-    if name == "ASK_INPUT"
-      then do
-        line <- getLine
-        if line == "bye"
-          then return "BYE"
-          else do
-            putStrLn line
-            return "SECOND"
-      else return "FINAL"
 
 -- | Similar to `object`, but don't turn it in a `Value`.
 record :: [Pair] -> Object
@@ -69,3 +58,15 @@ transitions = [
 
 workflow :: Workflow String
 workflow = Workflow "example" initial transitions [final]
+
+runTask s name = do
+  putStrLn $ "Running task " ++ name ++ "..."
+  if name == "ASK_INPUT"
+    then do
+      line <- getLine
+      if line == "bye"
+        then return (s, "BYE")
+        else do
+          putStrLn line
+          return (s, "SECOND")
+    else return (s, "FINAL")
