@@ -56,7 +56,7 @@ transitions = [
     ((third, "FINAL"), final)
   ]
 
-workflow :: Workflow String
+workflow :: Workflow String String
 workflow = Workflow "example" initial transitions [final]
 
 runTask s name = do

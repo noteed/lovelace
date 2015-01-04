@@ -10,18 +10,19 @@ import Data.Attoparsec.Number (Number(..))
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 
--- | Activities manipulates objects. They are parametrized by task type.
-data Activity t = Activity
+-- | Activities manipulates objects. They are parametrized by task and token
+-- types.
+data Activity t k = Activity
   { activityName :: String
     -- ^ An activity is identified (within a given workflow) by its name.
   , activityDescription :: String
     -- ^ Human-friendly description of the activity.
-  , activityHandler :: Object -> (Object, TaskOrToken t)
+  , activityHandler :: Object -> (Object, TaskOrToken t k)
     -- ^ Given a record (or state) (TODO and a token), compute a new state
     -- and return a new token or a task (which will generate a token).
   }
 
-instance Show (Activity t) where
+instance Show (Activity t k) where
   show Activity{..} = activityName
 
 -- | Request the engine to do some asynchronous task. Once the task is
@@ -30,12 +31,8 @@ instance Show (Activity t) where
 class Task t where
   serializeTask :: t -> String
 
--- | Transitions are identified by a Token. Currently a token is simply a
--- string but this should be replaced by an object.
-type Token = String
-
 -- | Similar to `Either` but makes things more clear.
-data TaskOrToken t = Task t | Token String
+data TaskOrToken t k = Task t | Token k
   deriving Show
 
 -- | Activities are linked together into a workflow.
@@ -43,11 +40,12 @@ data TaskOrToken t = Task t | Token String
 -- TODO A workflow should be parametrized by records, token and tasks.
 -- Different engines for different workflow types can be offered by this
 -- library, or constructed by users.
-data Workflow t = Workflow
+-- Workflows are parametrized by task and token types.
+data Workflow t k = Workflow
   { workflowName :: String
-  , workflowInitial :: Activity t
-  , workflowTransitions :: [((Activity t, Token), Activity t)]
-  , workflowFinal :: [Activity t]
+  , workflowInitial :: Activity t k
+  , workflowTransitions :: [((Activity t k, k), Activity t k)]
+  , workflowFinal :: [Activity t k]
   }
   deriving Show
 
@@ -55,7 +53,7 @@ data Workflow t = Workflow
 -- the transition has been followed. This also represent a "more complete"
 -- record, i.e. which includes its worflow-related state. See the `serialize`
 -- function below.
-data Step t = Step (Workflow t) (Activity t) Object (TaskOrToken t)
+data Step t k = Step (Workflow t k) (Activity t k) Object (TaskOrToken t k)
   deriving Show
 
 -- | Run an activity handler on a record.
@@ -99,7 +97,8 @@ run runTask engineState w r = start w r >>= loop engineState
       else continue w a r' t' >>= loop s'
 
 -- | Find the next activity, given the current activity and a token.
-lookupActivity :: Activity t -> Token -> [((Activity t, Token), Activity t)] -> Maybe (Activity t)
+lookupActivity :: Eq k =>
+  Activity t k -> k -> [((Activity t k, k), Activity t k)] -> Maybe (Activity t k)
 lookupActivity _ _ [] = Nothing
 lookupActivity a t (((b,t'),b''):ts)
   | activityName a == activityName b && t == t' = Just b''
@@ -109,7 +108,7 @@ lookupActivity a t (((b,t'),b''):ts)
 -- This means that given a workflow definition and a record, it is possible
 -- to continue to step the record through the workflow. All the state is
 -- self-contained.
-serialize :: Task t => Step t -> Object
+serialize :: Task t => Step t k -> Object
 serialize (Step w a r t) =
   H.insert "workflow_name" (f $ workflowName w)
   . H.insert "current_activity" (f $ activityName a)
