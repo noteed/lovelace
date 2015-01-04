@@ -71,7 +71,7 @@ start w@Workflow{..} r = step w workflowInitial r
 continue w@Workflow{..} a r' t' = do
   case lookupActivity a t' workflowTransitions of
     Nothing -> error $ "No such transition.\nActivity: " ++ activityName a
-      ++ "\nTransition: " ++ t'
+      ++ "\nTransition: " ++ show t'
     Just a' -> step w a' r'
 
 -- | Perform a single step in the workflow.
@@ -83,6 +83,7 @@ step w@Workflow{..} a r = do
 -- Running a workflow steps through the activities and handle tasks fired by
 -- activities, if any.
 -- The function to run a task can modify the engine state.
+run :: (Eq k, Show k) => (s -> t -> IO (s, k)) -> s -> Workflow t k -> Object -> IO (Step t k)
 run runTask engineState w r = start w r >>= loop engineState
 
   where
