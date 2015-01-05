@@ -51,17 +51,13 @@ data Workflow t k = Workflow
 
 -- | `Step` represents the record after an activity has been done, and before
 -- the transition has been followed. This also represent a "more complete"
--- record, i.e. which includes its worflow-related state. See the `serialize`
+-- record, i.e. which includes its workflow-related state. See the `serialize`
 -- function below.
 data Step t k = Step (Workflow t k) (Activity t k) Object (TaskOrToken t k)
   deriving Show
 
 -- | Run an activity handler on a record.
-runActivity Activity{..} r = do
-  putStr activityName
-  putStr " - "
-  putStrLn activityDescription
-  return $ activityHandler r
+runActivity Activity{..} r = activityHandler r
 
 -- | Start a workflow, performing a single step. Use `run` if the whole
 -- workflow must be traversed directly.
@@ -75,16 +71,20 @@ continue w@Workflow{..} a r' t' = do
     Just a' -> step w a' r'
 
 -- | Perform a single step in the workflow.
-step w@Workflow{..} a r = do
-  (r', t') <- runActivity a r
-  return $ Step w a r' t'
+step w@Workflow{..} a r =
+  let (r', t') = runActivity a r
+  in Step w a r' t'
 
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
 -- activities, if any.
 -- The function to run a task can modify the engine state.
 run :: (Eq k, Show k) => (s -> t -> IO (s, k)) -> s -> Workflow t k -> Object -> IO (Step t k)
-run runTask engineState w r = start w r >>= loop engineState
+run runTask engineState w r = do
+  putStr . activityName . workflowInitial $ w
+  putStr " - "
+  putStrLn $ activityDescription . workflowInitial $ w
+  loop engineState $ start w r
 
   where
 
@@ -95,7 +95,11 @@ run runTask engineState w r = start w r >>= loop engineState
       Token t' -> return (s, t')
     if final a
       then return $ Step w a r' (Token t')
-      else continue w a r' t' >>= loop s'
+      else do
+        putStr $ activityName a
+        putStr " - "
+        putStrLn $ activityDescription a
+        loop s' $ continue w a r' t'
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: Eq k =>
