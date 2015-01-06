@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-} -- For instance Task String
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-} -- For instance Task String
 module Main (main) where
@@ -24,6 +25,9 @@ main = do
 instance Task String where
   serializeTask = id
 
+instance Token String String where
+  tag = id
+
 -- | Similar to `object`, but don't turn it in a `Value`.
 record :: [Pair] -> Object
 record = H.fromList
@@ -31,21 +35,21 @@ record = H.fromList
 int = Number . I
 
 initial = Activity "INIT"
-  "Initialization..." $
-  const (record [("count", int 0)], Token "SECOND")
+  "Initialization..." $ \_ _ ->
+  (record [("count", int 0)], Token "SECOND")
 
 second = Activity "SECOND"
-  "Get input (`bye` to exit)..." $ \state ->
+  "Get input (`bye` to exit)..." $ \state _ ->
   let Number (I count) = maybe (error "No count.") id $ H.lookup "count" state
       state' = record [("count", int (count + 1))]
   in (state', Task "ASK_INPUT")
 
 third = Activity "THIRD"
-  "Will wait for task completion..." $ \state ->
+  "Will wait for task completion..." $ \state _ ->
   (state, Task "TASK")
 
 final = Activity "FINAL"
-  "End of workflow." $ \state ->
+  "End of workflow." $ \state _ ->
   let Number (I count) = maybe (error "No count.") id $ H.lookup "count" state
   in (state, Token "STOP")
 
@@ -56,7 +60,7 @@ transitions = [
     ((third, "FINAL"), final)
   ]
 
-workflow :: Workflow String String
+workflow :: Workflow String String String
 workflow = Workflow "example" initial transitions [final]
 
 runTask s name = do
