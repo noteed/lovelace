@@ -6,10 +6,11 @@ module Main (main) where
 
 import Data.Aeson
 import Data.Aeson.Types (Pair)
-import Data.Attoparsec.Number (Number(..))
 import qualified Data.HashMap.Strict as H
 import Data.Text (Text)
 import Data.List (mapAccumL, sortBy)
+import Data.Maybe (fromJust)
+import qualified Data.Scientific as Sc
 import System.Random
 
 import Lovelace
@@ -63,7 +64,7 @@ getState (Step _ _ r _) = r
 
 getLife state = life
   where
-  Number (I life) = maybe (error "No life attribute.") id $ H.lookup "life" state
+  Number life = maybe (error "No life attribute.") id $ H.lookup "life" state
 
 getName state = name
   where
@@ -77,7 +78,7 @@ reorder = sortBy f
 ----------------------------------------------------------------------
 
 data Engine = Engine
-  { eShoots :: [(Int, Text, Integer)] -- ticks, target, damage - a.k.a schedule a Hit.
+  { eShoots :: [(Int, Text, Int)] -- ticks, target, damage - a.k.a schedule a Hit.
   , eTick :: Int -- current tick
   , eRandom :: StdGen
   }
@@ -85,13 +86,13 @@ data Engine = Engine
 initialState = Engine [] 0
 
 data T =
-    Shoot Int Text Integer -- ticks, target, damage - a.k.a schedule a Hit.
+    Shoot Int Text Int -- ticks, target, damage - a.k.a schedule a Hit.
   | Wait -- Block the workflow until the engine decides the next step.
   deriving Show
 
 data K =
     THINK_ Int -- random number
-  | HIT_ Integer -- damage
+  | HIT_ Int -- damage
   | END_
   deriving Show
 
@@ -115,7 +116,8 @@ instance Token K G where
 record :: [Pair] -> Object
 record = H.fromList
 
-int = Number . I
+int :: Int -> Value
+int = Number . fromIntegral
 
 initial = Activity "INIT"
   "Initializing marine..." $ \state _ ->
@@ -148,7 +150,7 @@ damage = Activity "DAMAGE"
   -- Yes, this is a partial function...
   "Getting damage..." $ \state (HIT_ damage) ->
   let life = getLife state
-  in (H.insert "life" (int $ max 0 (life - damage)) state, Task Wait)
+  in (H.insert "life" (int $ max 0 (fromJust (Sc.toBoundedInteger life) - damage)) state, Task Wait)
 
 final = Activity "FINAL"
   "Party is over..." $ \state _ ->
