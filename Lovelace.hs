@@ -18,6 +18,12 @@
 -- just a matter of comparing two tags: the one drawn from the token, and the
 -- one labelling the arc. The token in addition to carrying a tag can hold
 -- values used by the next node.
+--
+-- Activities and tasks are different beasts: activities are defined by the
+-- workflow user while tasks are defined and handled by the engine. Also,
+-- activities' state is within the record, while tasks can carry additional
+-- data (and different data from tasks to tasks) that do not make sense on the
+-- record itself.
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
