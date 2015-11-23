@@ -6,8 +6,9 @@ module Main (main) where
 
 import Data.Aeson
 import Data.Aeson.Types (Pair)
-import Data.Attoparsec.Number (Number(..))
 import qualified Data.HashMap.Strict as H
+import Data.Maybe (fromJust)
+import qualified Data.Scientific as Sc
 
 import Lovelace
 
@@ -32,7 +33,8 @@ instance Token String String where
 record :: [Pair] -> Object
 record = H.fromList
 
-int = Number . I
+int :: Int -> Value
+int = Number . fromIntegral
 
 initial = Activity "INIT"
   "Initialization..." $ \_ _ ->
@@ -40,8 +42,8 @@ initial = Activity "INIT"
 
 second = Activity "SECOND"
   "Get input (`bye` to exit)..." $ \state _ ->
-  let Number (I count) = maybe (error "No count.") id $ H.lookup "count" state
-      state' = record [("count", int (count + 1))]
+  let Number count = maybe (error "No count.") id $ H.lookup "count" state
+      state' = record [("count", int (fromJust (Sc.toBoundedInteger count) + 1))]
   in (state', Task "ASK_INPUT")
 
 third = Activity "THIRD"
@@ -50,7 +52,7 @@ third = Activity "THIRD"
 
 final = Activity "FINAL"
   "End of workflow." $ \state _ ->
-  let Number (I count) = maybe (error "No count.") id $ H.lookup "count" state
+  let Number count = maybe (error "No count.") id $ H.lookup "count" state
   in (state, Token "STOP")
 
 transitions = [

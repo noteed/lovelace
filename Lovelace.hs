@@ -32,7 +32,6 @@ module Lovelace where
 
 import Data.Aeson
 import Data.Aeson.Types (Pair)
-import Data.Attoparsec.Number (Number(..))
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 
