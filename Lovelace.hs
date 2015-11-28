@@ -1,7 +1,7 @@
 -- | Simple workflow engine. Just playing around...
 --
--- Type variable mnemonic: `t`, `k`, `g` stands respectively for task,
--- token, tag.
+-- Type variable mnemonic: `o`, `t`, `k`, `g` stands respectively for object,
+-- task, token, tag.
 --
 -- A workflow is simply a directed graph: nodes linked together by arcs.
 -- Nodes can run activities, and arcs are labeled by tags.
@@ -35,19 +35,19 @@ import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as H
 import qualified Data.Text as T
 
--- | Activities manipulates objects. They are parametrized by task and token
--- types.
-data Activity t k = Activity
+-- | Activities manipulates objects. They are parametrized by object, task
+-- and token types.
+data Activity o t k = Activity
   { activityName :: String
     -- ^ An activity is identified (within a given workflow) by its name.
   , activityDescription :: String
     -- ^ Human-friendly description of the activity.
-  , activityHandler :: Object -> k -> (Object, TaskOrToken t k)
+  , activityHandler :: o -> k -> (o, TaskOrToken t k)
     -- ^ Given a record (or state) and a token, compute a new state
     -- and return a new token or a task (which will generate a token).
   }
 
-instance Show (Activity t k) where
+instance Show (Activity o t k) where
   show Activity{..} = activityName
 
 -- | Request the engine to do some asynchronous task. Once the task is
@@ -69,11 +69,11 @@ class Token k g where
 -- Different engines for different workflow types can be offered by this
 -- library, or constructed by users.
 -- Workflows are parametrized by task and token types.
-data Workflow t k g = Workflow
+data Workflow o t k g = Workflow
   { workflowName :: String
-  , workflowInitial :: Activity t k
-  , workflowTransitions :: [((Activity t k, g), Activity t k)]
-  , workflowFinal :: [Activity t k]
+  , workflowInitial :: Activity o t k
+  , workflowTransitions :: [((Activity o t k, g), Activity o t k)]
+  , workflowFinal :: [Activity o t k]
   }
   deriving Show
 
@@ -81,7 +81,7 @@ data Workflow t k g = Workflow
 -- the transition has been followed. This also represent a "more complete"
 -- record, i.e. which includes its workflow-related state. See the `serialize`
 -- function below.
-data Step t k g = Step (Workflow t k g) (Activity t k) Object (TaskOrToken t k)
+data Step o t k g = Step (Workflow o t k g) (Activity o t k) o (TaskOrToken t k)
   deriving Show
 
 -- | Start a workflow, performing a single step. Use `run` if the whole
@@ -106,7 +106,7 @@ step w@Workflow{..} a r k =
 -- activities, if any.
 -- The function to run a task can modify the engine state.
 run :: (Eq g, Show k, Token k g) =>
-  (s -> t -> IO (s, k)) -> s -> Workflow t k g -> Object -> IO (Step t k g)
+  (s -> t -> IO (s, k)) -> s -> Workflow o t k g -> o -> IO (Step o t k g)
 run runTask engineState w r = do
   putStr . activityName . workflowInitial $ w
   putStr " - "
@@ -130,7 +130,7 @@ run runTask engineState w r = do
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: (Eq g, Token k g) =>
-  Activity t k -> k -> [((Activity t k, g), Activity t k)] -> Maybe (Activity t k)
+  Activity o t k -> k -> [((Activity o t k, g), Activity o t k)] -> Maybe (Activity o t k)
 lookupActivity _ _ [] = Nothing
 lookupActivity a t (((b,t'),b''):ts)
   | activityName a == activityName b && tag t == t' = Just b''
@@ -140,7 +140,8 @@ lookupActivity a t (((b,t'),b''):ts)
 -- This means that given a workflow definition and a record, it is possible
 -- to continue to step the record through the workflow. All the state is
 -- self-contained.
-serialize :: Task t => Step t k g -> Object
+-- This is an example function for `o` instanciated to aeson's Object.
+serialize :: Task t => Step Object t k g -> Object
 serialize (Step w a r t) =
   H.insert "workflow_name" (f $ workflowName w)
   . H.insert "current_activity" (f $ activityName a)
