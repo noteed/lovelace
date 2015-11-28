@@ -96,7 +96,8 @@ continue w@Workflow{..} a r' t' = do
       ++ "\nTransition: " ++ show t'
     Just a' -> step w a' r' t'
 
--- | Perform a single step in the workflow.
+-- | Perform a single step in the workflow, i.e. compute the task or token
+-- returned returned by the activity (but "stays in" the activity).
 step w@Workflow{..} a r k =
   let (r', t') = activityHandler a r k
   in Step w a r' t'
@@ -107,25 +108,26 @@ step w@Workflow{..} a r k =
 -- The function to run a task can modify the engine state.
 run :: (Eq g, Show k, Token k g) =>
   (s -> t -> IO (s, k)) -> s -> Workflow o t k g -> o -> IO (Step o t k g)
-run runTask engineState w r = do
-  putStr . activityName . workflowInitial $ w
-  putStr " - "
-  putStrLn $ activityDescription . workflowInitial $ w
-  loop engineState $ start w r
+run runTask engineState w r = loop engineState $ start w r
 
   where
 
   final x = activityName x `elem` map activityName (workflowFinal w)
   loop s (Step _ a r' t) = do
-    (s', t') <- case t of
-      Task task -> runTask s task
-      Token t' -> return (s, t')
+    putStr $ activityName a
+    putStr " - "
+    putStrLn $ activityDescription a
     if final a
-      then return $ Step w a r' (Token t')
+      then
+        -- Don't execute final task or take care of final token.
+        case t of
+          Task _ -> error "Final activity tries to run a task."
+          Token t' -> return $ Step w a r' (Token t')
       else do
-        putStr $ activityName a
-        putStr " - "
-        putStrLn $ activityDescription a
+        -- Run the task, if any, returned by the activity.
+        (s', t') <- case t of
+          Task task -> runTask s task
+          Token t' -> return (s, t')
         loop s' $ continue w a r' t'
 
 -- | Find the next activity, given the current activity and a token.
