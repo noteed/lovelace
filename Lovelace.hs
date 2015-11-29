@@ -84,6 +84,8 @@ data Workflow o t k g = Workflow
 data Step o t k g = Step (Workflow o t k g) (Activity o t k) o (TaskOrToken t k)
   deriving Show
 
+final w a = activityName a `elem` map activityName (workflowFinal w)
+
 -- | Start a workflow, performing a single step. Use `run` if the whole
 -- workflow must be traversed directly.
 start w@Workflow{..} r = step w workflowInitial r undefined
@@ -112,12 +114,11 @@ run runTask engineState w r = loop engineState $ start w r
 
   where
 
-  final x = activityName x `elem` map activityName (workflowFinal w)
   loop s (Step _ a r' t) = do
     putStr $ activityName a
     putStr " - "
     putStrLn $ activityDescription a
-    if final a
+    if final w a
       then
         -- Don't execute final task or take care of final token.
         case t of
@@ -129,6 +130,17 @@ run runTask engineState w r = loop engineState $ start w r
           Task task -> runTask s task
           Token t' -> return (s, t')
         loop s' $ continue w a r' t'
+
+-- | Run a workflow as far as possible but without processing tasks.
+-- In other words, continue as long as activities result in tokens.
+-- Once a task is reached or a final activity is reached, this stops.
+run' :: (Eq g, Show k, Token k g) => Step o t k g -> Step o t k g
+run' s@(Step w a r t) =
+  if final w a
+    then s
+    else case t of
+      Task _ -> s
+      Token t' -> run' (continue w a r t')
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: (Eq g, Token k g) =>
