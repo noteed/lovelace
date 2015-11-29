@@ -1,0 +1,25 @@
+name:                lovelace
+version:             0.0.0
+Cabal-Version:       >= 1.8
+synopsis:            A toy workflow system.
+description:         A toy workflow system.
+category:            Development
+license:             BSD3
+license-file:        LICENSE
+author:              Vo Minh Thu
+maintainer:          thu@hypered.io
+homepage:            http://noteed.com/lovelace
+bug-reports:         https://github.com/noteed/lovelace/issues
+build-type:          Simple
+
+source-repository head
+  type: git
+  location: https://github.com/noteed/lovelace
+
+library
+  build-depends:       aeson,
+                       base == 4.*,
+                       text,
+                       unordered-containers
+  exposed-modules:     Lovelace
+  ghc-options:         -Wall
