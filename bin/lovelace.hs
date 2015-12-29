@@ -10,12 +10,12 @@ import qualified Data.HashMap.Strict as H
 import Data.Maybe (fromJust)
 import qualified Data.Scientific as Sc
 
-import Lovelace
+import Lovelace hiding (final)
 
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  s <- run runTask () workflow (record [])
+  s <- run runTask () workflow (record [("count", int 0)]) "START"
   print s
   print $ serialize s
 
@@ -37,35 +37,40 @@ int :: Int -> Value
 int = Number . fromIntegral
 
 initial = Activity "INIT"
-  "Initialization..." $ \_ _ ->
-  (record [("count", int 0)], Token "SECOND")
+  "Initialization..."
+  (Pure $ \state _ -> (state, "SECOND"))
 
 second = Activity "SECOND"
-  "Get input (`bye` to exit)..." $ \state _ ->
+  "Increase count..." (Pure $ \state _ ->
   let Number count = maybe (error "No count.") id $ H.lookup "count" state
       state' = record [("count", int (fromJust (Sc.toBoundedInteger count) + 1))]
-  in (state', Task "ASK_INPUT")
+  in (state', "ASK_INPUT"))
+
+getInput = Activity "GET_INPUT"
+  "Get input (`bye` to exit)..."
+  (Task "ASK_INPUT")
 
 third = Activity "THIRD"
-  "Will wait for task completion..." $ \state _ ->
-  (state, Task "TASK")
+  "Will wait for task completion..."
+  (Task "TASK")
 
 final = Activity "FINAL"
-  "End of workflow." $ \state _ ->
+  "End of workflow." (Pure $ \state _ ->
   let Number count = maybe (error "No count.") id $ H.lookup "count" state
-  in (state, Token "STOP")
+  in (state, "STOP"))
 
 transitions = [
     ((initial, "SECOND"), second),
-    ((second, "SECOND"), second),
-    ((second, "BYE"), third),
+    ((second, "ASK_INPUT"), getInput),
+    ((getInput, "SECOND"), second),
+    ((getInput, "BYE"), third),
     ((third, "FINAL"), final)
   ]
 
 workflow :: Workflow Object String String String
 workflow = Workflow "example" initial transitions [final]
 
-runTask s name = do
+runTask name s k = do
   putStrLn $ "Running task " ++ name ++ "..."
   if name == "ASK_INPUT"
     then do

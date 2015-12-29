@@ -17,7 +17,7 @@ import qualified Lovelace
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  s <- Lovelace.run runTask () workflow initialRecord
+  s <- Lovelace.run runTask () workflow initialRecord "START"
   -- print s
   return ()
 
@@ -39,20 +39,20 @@ initialRecord = Record
 record = Record -- TODO Update the record
 
 build = Activity "BUILD"
-  "Building Docker image..." $ \state _ ->
-    (state, Task "RUN-DOCKER-BUILD")
+  "Building Docker image..."
+  (Task "RUN-DOCKER-BUILD")
 
 run = Activity "RUN"
-  "Running Docker image..." $ \state _ ->
-    (state, Task "RUN-DOCKER-RUN")
+  "Running Docker image..."
+  (Task "RUN-DOCKER-RUN")
 
 success = Activity "SUCCESS"
-  "End of workflow." $ \state _ ->
-    (state, Token "STOP")
+  "End of workflow."
+  (Pure $ \state _ -> (state, "STOP"))
 
 failure = Activity "FAILURE"
-  "End of workflow." $ \state _ ->
-    (state, Token "IGNORED")
+  "End of workflow."
+  (Pure $ \state _ -> (state, "IGNORED"))
 
 transitions = [
     ((build, "IMAGE_ID_XXX"), run),
@@ -64,7 +64,7 @@ transitions = [
 workflow :: Workflow Record String String String
 workflow = Workflow "build-and-run" build transitions [success, failure]
 
-runTask s name = do
+runTask name s k = do
   putStrLn $ "Running task " ++ name ++ "..."
   case name of
     "RUN-DOCKER-BUILD" -> do
