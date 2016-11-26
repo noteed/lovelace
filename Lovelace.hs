@@ -3,12 +3,18 @@
 -- Type variable mnemonic: `o`, `t`, `k`, `g` stands respectively for object,
 -- task, token, tag.
 --
+-- A workflow can be seen as a function Token -> IO Token associated to an
+-- object.
+-- It receives an initial token (which carries data), processes it, possibly
+-- mutating the object, and returns a new token. By convention, a token
+-- different than "SUCCESS" is seen as a failure.
+--
 -- A workflow is simply a directed graph: nodes linked together by arcs.
 -- Nodes can run activities, and arcs are labeled by tags.
 --
 -- When an object enters a workflow, it starts at the workflow's initial node.
 -- It then moves along the arcs until it reaches a final node. At each node,
--- an activity can be run. The activity can change the object state and can
+-- an activity can be run. The activity can change the object state or can
 -- start a task. The workflow engine handles the task and the object remains
 -- at that node until the task is completed. The task result is a token. The
 -- token is used to choose an ongoing arc, and move the object to the pointed
@@ -19,11 +25,10 @@
 -- one labelling the arc. The token in addition to carrying a tag can hold
 -- values used by the next node.
 --
--- Activities and tasks are different beasts: activities are defined by the
+-- Activities can be pure or tasks : pure activities are defined by the
 -- workflow user while tasks are defined and handled by the engine. Also,
--- activities' state is within the record, while tasks can carry additional
--- data (and different data from tasks to tasks) that do not make sense on the
--- record itself.
+-- activities' state is within the record, while tasks receive and output their
+-- own data.
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -132,18 +137,13 @@ run runTask engineState w r k = loop engineState (start w r k) k
     putStr $ activityName a
     putStr " - "
     putStrLn $ activityDescription a
+    -- Run the task, if any, returned by the step.
+    (s', t') <- case t of
+      Task' task -> runTask task s k
+      Token k' -> return (s, k')
     if final w a
-      then
-        -- Don't execute final task or take care of final token.
-        case t of
-          Task' _ -> error "Final activity tries to run a task."
-          _ -> return (Step w a r' t)
-      else do
-        -- Run the task, if any, returned by the step.
-        (s', t') <- case t of
-          Task' task -> runTask task s k
-          Token k' -> return (s, k')
-        loop s' (continue w a r' t') t'
+      then return (Step w a r' (Token t'))
+      else loop s' (continue w a r' t') t'
 
 -- | Run a workflow as far as possible but without processing tasks.
 -- In other words, continue as long as activities result in tokens.
