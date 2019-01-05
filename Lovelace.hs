@@ -27,7 +27,7 @@
 --
 -- Activities can be pure or tasks : pure activities are defined by the
 -- workflow user while tasks are defined and handled by the engine. Also,
--- activities' state is within the record, while tasks receive and output their
+-- activities' state is within the object, while tasks receive and output their
 -- own data.
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -61,7 +61,7 @@ instance Show (Activity o t k) where
 class Task t where
   serializeTask :: t -> String
 
--- | In the Pure case, given a record (or state) and a token, compute a new
+-- | In the Pure case, given an object (or state) and a token, compute a new
 -- state and return a new token, or in the Task case, just name the task.
 -- The task is processed by the workflow engine. It is recommanded to engine
 -- implementors to export only the input token to the task instead of the full
@@ -77,10 +77,9 @@ class Token k g where
 
 -- | Activities are linked together into a workflow.
 -- TODO Check activity names are unique.
--- TODO A workflow should be parametrized by records, token and tasks.
 -- Different engines for different workflow types can be offered by this
 -- library, or constructed by users.
--- Workflows are parametrized by task and token types.
+-- Workflows are parametrized by object, task, token and tag types.
 data Workflow o t k g = Workflow
   { workflowName :: String
   , workflowInitial :: Activity o t k
@@ -89,9 +88,9 @@ data Workflow o t k g = Workflow
   }
   deriving Show
 
--- | `Step` represents the record after an activity has been done, and before
+-- | `Step` represents the object after an activity has been done, and before
 -- the transition has been followed. This also represent a "more complete"
--- record, i.e. which includes its workflow-related state. See the `serialize`
+-- object, i.e. which includes its workflow-related state. See the `serialize`
 -- function below.
 -- TODO Include the input token in the Step representation.
 data Step o t k g = Step (Workflow o t k g) (Activity o t k) o (TaskOrToken t k)
@@ -171,9 +170,9 @@ activities Workflow{..} = map (\a -> (activityName a, a))
   $ nubBy ((==) `on` activityName)
   $ map (fst . fst) workflowTransitions ++ map snd workflowTransitions
 
--- | The workflow state tied to a record can be saved in the record itself.
--- This means that given a workflow definition and a record, it is possible
--- to continue to step the record through the workflow. All the state is
+-- | The workflow state tied to a object can be saved in the object itself.
+-- This means that given a workflow definition and an object, it is possible
+-- to continue to step the object through the workflow. All the state is
 -- self-contained.
 -- This is an example function for `o` instanciated to aeson's Object.
 serialize :: Task t => Step Object t k g -> Object
