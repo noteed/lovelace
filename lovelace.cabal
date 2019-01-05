@@ -1,5 +1,5 @@
 name:                lovelace
-version:             0.0.0
+version:             0.0.1
 Cabal-Version:       >= 1.8
 synopsis:            A toy workflow system.
 description:         A toy workflow system.
