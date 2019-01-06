@@ -128,7 +128,7 @@ step w@Workflow{..} a r k =
 -- The function to run a task can modify the engine state.
 run :: (Eq g, Show k, Token k g) =>
   (t -> s -> k -> IO (s, k)) -> s -> Workflow o t k g -> o -> k -> IO (Step o t k g)
-run runTask engineState w r k = loop engineState (start w r k) k
+run handler engineState w r k = loop engineState (start w r k) k
 
   where
 
@@ -138,7 +138,7 @@ run runTask engineState w r k = loop engineState (start w r k) k
     putStrLn $ activityDescription a
     -- Run the task, if any, returned by the step.
     (s', t') <- case t of
-      Task' task -> runTask task s k
+      Task' task -> handler task s k
       Token k' -> return (s, k')
     if final w a
       then return (Step w a r' (Token t'))

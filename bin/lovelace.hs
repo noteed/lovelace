@@ -15,7 +15,7 @@ import Lovelace hiding (final)
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  s <- run runTask () workflow (record [("count", int 0)]) "START"
+  s <- run handler () workflow (record [("count", int 0)]) "START"
   print s
   print $ serialize s
 
@@ -70,7 +70,7 @@ transitions = [
 workflow :: Workflow Object String String String
 workflow = Workflow "example" initial transitions [final]
 
-runTask name s k = do
+handler name s k = do
   putStrLn $ "Running task " ++ name ++ "..."
   if name == "ASK_INPUT"
     then do

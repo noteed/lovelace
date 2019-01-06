@@ -17,7 +17,7 @@ import qualified Lovelace
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  s <- Lovelace.run runTask () workflow initialRecord "START"
+  s <- Lovelace.run handler () workflow initialRecord "START"
   -- print s
   return ()
 
@@ -64,7 +64,7 @@ transitions = [
 workflow :: Workflow Record String String String
 workflow = Workflow "build-and-run" build transitions [success, failure]
 
-runTask name s k = do
+handler name s k = do
   putStrLn $ "Running task " ++ name ++ "..."
   case name of
     "RUN-DOCKER-BUILD" -> do
