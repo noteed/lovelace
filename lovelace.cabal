@@ -4,7 +4,7 @@ Cabal-Version:       >= 1.8
 synopsis:            A toy workflow system.
 description:         A toy workflow system.
 category:            Development
-license:             BSD3
+license:             BSD2
 license-file:        LICENSE
 author:              Vo Minh Thu
 maintainer:          thu@hypered.io
