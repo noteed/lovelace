@@ -83,7 +83,7 @@ class Token k g where
 data Workflow o t k g = Workflow
   { workflowName :: String
   , workflowInitial :: Activity o t k
-  , workflowTransitions :: [((Activity o t k, g), Activity o t k)]
+  , workflowTransitions :: [(Activity o t k, g, Activity o t k)]
   , workflowFinal :: [Activity o t k]
   }
   deriving Show
@@ -158,9 +158,9 @@ run' s@(Step w a r t) k =
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: (Eq g, Token k g) =>
-  Activity o t k -> k -> [((Activity o t k, g), Activity o t k)] -> Maybe (Activity o t k)
+  Activity o t k -> k -> [(Activity o t k, g, Activity o t k)] -> Maybe (Activity o t k)
 lookupActivity _ _ [] = Nothing
-lookupActivity a t (((b,t'),b''):ts)
+lookupActivity a t ((b, t' , b''):ts)
   | activityName a == activityName b && tag t == t' = Just b''
   | otherwise = lookupActivity a t ts
 
@@ -168,7 +168,7 @@ lookupActivity a t (((b,t'),b''):ts)
 activities :: Workflow o t k g -> [(String, Activity o t k)]
 activities Workflow{..} = map (\a -> (activityName a, a))
   $ nubBy ((==) `on` activityName)
-  $ map (fst . fst) workflowTransitions ++ map snd workflowTransitions
+  $ map fst3 workflowTransitions ++ map thd3 workflowTransitions
 
 -- | The workflow state tied to a object can be saved in the object itself.
 -- This means that given a workflow definition and an object, it is possible
@@ -182,3 +182,6 @@ serialize (Step w a r t) =
   . (case t of { Task' x -> H.insert "waiting_task" (f $ serializeTask x) ; _ -> H.delete "waiting_task" })
   $ r
   where f = String . T.pack
+
+fst3 (a, _, _) = a
+thd3 (_, _, c) = c

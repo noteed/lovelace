@@ -60,11 +60,11 @@ final = Activity "FINAL"
   in (state, "STOP"))
 
 transitions = [
-    ((initial, "SECOND"), second),
-    ((second, "ASK_INPUT"), getInput),
-    ((getInput, "SECOND"), second),
-    ((getInput, "BYE"), third),
-    ((third, "FINAL"), final)
+    (initial,  "SECOND",    second),
+    (second,   "ASK_INPUT", getInput),
+    (getInput, "SECOND",    second),
+    (getInput, "BYE",       third),
+    (third,    "FINAL",     final)
   ]
 
 workflow :: Workflow Object String String String
