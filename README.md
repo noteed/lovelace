@@ -10,6 +10,16 @@ $ nix-build release.nix
 ```
 
 
+## Features
+
+- A simple SVG rendering is provided by using Graphviz. Use the `Makefile` to
+  get an example:
+
+```
+$ make
+```
+
+
 ## Developer notes
 
 A `shell.nix` is provided and can be used as follow:

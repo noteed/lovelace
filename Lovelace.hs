@@ -185,3 +185,26 @@ serialize (Step w a r t) =
 
 fst3 (a, _, _) = a
 thd3 (_, _, c) = c
+
+--------------------------------------------------------------------------------
+-- Graphviz.
+--------------------------------------------------------------------------------
+
+-- This requires the tag type is an instance of Show.
+graphviz :: Show g => Workflow o t k g -> String
+graphviz Workflow{..} = unlines $
+  [ "digraph " ++ workflowName ++ " {"
+  , "rankdir=LR;"
+  , "size=\"8,5\""
+  , "node [shape = doublecircle];"
+  , unwords (map activityName (workflowInitial : workflowFinal)) ++ ";"
+  , "node [shape = circle];"
+  ] ++
+  map f workflowTransitions ++
+  [ "}"
+  ]
+
+  where
+
+  f (a, b, c) =
+    activityName a ++ " -> " ++ activityName c ++ " [ label = " ++ show b ++ " ];"

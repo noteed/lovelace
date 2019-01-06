@@ -9,15 +9,20 @@ import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as H
 import Data.Maybe (fromJust)
 import qualified Data.Scientific as Sc
+import System.Environment (getArgs)
 
 import Lovelace hiding (final)
 
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  s <- run handler () workflow (record [("count", int 0)]) "START"
-  print s
-  print $ serialize s
+  args <- getArgs
+  case args of
+    ["graph"] -> writeFile "example.dot" (graphviz workflow)
+    _ -> do
+      s <- run handler () workflow (record [("count", int 0)]) "START"
+      print s
+      print $ serialize s
 
 ----------------------------------------------------------------------
 -- Example workflow.
