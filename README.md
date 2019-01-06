@@ -12,6 +12,10 @@ $ nix-build release.nix
 
 ## Features
 
+- When running a workflow, it is possible to get a trace of all the
+  intermediate results by using the `runs` function (instead of the `run`
+  function which returns only the final result).
+
 - A simple SVG rendering is provided by using Graphviz. Use the `Makefile` to
   get an example:
 

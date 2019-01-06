@@ -20,9 +20,9 @@ main = do
   case args of
     ["graph"] -> writeFile "example.dot" (graphviz workflow)
     _ -> do
-      s <- run handler () workflow (record [("count", int 0)]) "START"
-      print s
-      print $ serialize s
+      ss <- runs handler () workflow (record [("count", int 0)]) "START"
+      putStrLn "\nTrace of resulting tokens:"
+      mapM_ (print . stepResult) ss
 
 ----------------------------------------------------------------------
 -- Example workflow.
@@ -62,7 +62,7 @@ third = Activity "THIRD"
 final = Activity "FINAL"
   "End of workflow." (Pure $ \state _ ->
   let Number count = maybe (error "No count.") id $ H.lookup "count" state
-  in (state, "STOP"))
+  in (state, "SUCCESS"))
 
 transitions = [
     (initial,  "SECOND",    second),

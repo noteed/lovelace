@@ -93,7 +93,12 @@ data Workflow o t k g = Workflow
 -- object, i.e. which includes its workflow-related state. See the `serialize`
 -- function below.
 -- TODO Include the input token in the Step representation.
-data Step o t k g = Step (Workflow o t k g) (Activity o t k) o (TaskOrToken t k)
+data Step o t k g = Step
+  { stepWorkflow :: Workflow o t k g
+  , stepActivity :: Activity o t k
+  , stepObject :: o
+  , stepResult :: TaskOrToken t k
+  }
   deriving Show
 
 final :: Workflow o t k g -> Activity o t k -> Bool
@@ -128,11 +133,23 @@ step w@Workflow{..} a r k =
 -- The function to run a task can modify the engine state.
 run :: (Eq g, Show k, Token k g) =>
   (t -> s -> k -> IO (s, k)) -> s -> Workflow o t k g -> o -> k -> IO (Step o t k g)
-run handler engineState w r k = loop engineState (start w r k) k
+run handler engineState w r k = runs handler engineState w r k >>= return . last
+
+-- | Return all the steps.
+runs :: (Eq g, Show k, Token k g) =>
+  (t -> s -> k -> IO (s, k)) -> s -> Workflow o t k g -> o -> k -> IO [Step o t k g]
+runs handler engineState w r k = run_ [] handler engineState w r k
+
+-- | Return all the steps.
+-- The accumulator is used to remember all the past steps.
+run_ :: (Eq g, Show k, Token k g) =>
+  [Step o t k g] -> (t -> s -> k -> IO (s, k)) -> s
+  -> Workflow o t k g -> o -> k -> IO [Step o t k g]
+run_ acc handler engineState w r k = loop acc engineState (start w r k) k
 
   where
 
-  loop s (Step _ a r' t) k = do
+  loop acc s (Step _ a r' t) k = do
     putStr $ activityName a
     putStr " - "
     putStrLn $ activityDescription a
@@ -140,9 +157,10 @@ run handler engineState w r k = loop engineState (start w r k) k
     (s', t') <- case t of
       Task' task -> handler task s k
       Token k' -> return (s, k')
+    let acc' = Step w a r' (Token t') : acc
     if final w a
-      then return (Step w a r' (Token t'))
-      else loop s' (continue w a r' t') t'
+      then return (reverse acc')
+      else loop acc' s' (continue w a r' t') t'
 
 -- | Run a workflow as far as possible but without processing tasks.
 -- In other words, continue as long as activities result in tokens.
