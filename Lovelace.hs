@@ -209,12 +209,15 @@ thd3 (_, _, c) = c
 --------------------------------------------------------------------------------
 
 -- This requires the tag type is an instance of Show.
-graphviz :: Show g => Workflow o t k g -> String
-graphviz Workflow{..} = unlines $
+graphviz :: Show g => Workflow o t k g -> Maybe (Activity o t k) -> String
+graphviz Workflow{..} ma = unlines $
   [ "digraph " ++ workflowName ++ " {"
   , "rankdir=LR;"
   , "size=\"8,5\""
-  , "node [shape = doublecircle];"
+  , "node [shape = Mcircle];"
+  ] ++
+  maybe [] (return . activityName) ma ++
+  ["node [shape = doublecircle];"
   , unwords (map activityName (workflowInitial : workflowFinal)) ++ ";"
   , "node [shape = circle];"
   ] ++
@@ -226,3 +229,5 @@ graphviz Workflow{..} = unlines $
 
   f (a, b, c) =
     activityName a ++ " -> " ++ activityName c ++ " [ label = " ++ show b ++ " ];"
+
+graphvizs Step{..} = graphviz stepWorkflow (Just stepActivity)

@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeSynonymInstances #-} -- For instance Task String
 module Main (main) where
 
+import Control.Monad (when)
 import Data.Aeson
 import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as H
@@ -18,11 +19,16 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    ["graph"] -> writeFile "example.dot" (graphviz workflow)
+    ["graph"] -> writeFile "example.dot" (graphviz workflow Nothing)
     _ -> do
       ss <- runs handler () workflow (record [("count", int 0)]) "START"
       putStrLn "\nTrace of resulting tokens:"
       mapM_ (print . stepResult) ss
+      when (args == ["--graph"]) $
+        mapM_ (\(i, s) ->
+          writeFile
+            ("example-" ++ show i ++ ".dot")
+            (graphvizs s)) (zip [1..] ss)
 
 ----------------------------------------------------------------------
 -- Example workflow.
