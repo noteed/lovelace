@@ -40,3 +40,9 @@ $ nix-shell --pure --run 'ghci bin/lovelace.hs'
 ```
 $ cabal2nix . > default.nix
 ```
+
+A first test has been added and can be run with:
+
+```
+$ nix-shell --pure --run 'runghc -itests/ tests/bin/test-suite.hs'
+```

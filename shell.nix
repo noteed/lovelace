@@ -17,14 +17,14 @@ let
   drv = hspkgs.callPackage f {};
 in
 
-pkgs.stdenv.mkDerivation {
-  name = "lovelace-env";
-  buildInputs = [
-  ] ++ drv.env.nativeBuildInputs;
-  shellHook = ''
-    echo Entering the Nix environment for Lovelace...
-    # nix --version
-    # ghc --version
-    # ghci -ghci-script ghci-nix-shell.conf
-  '';
-}
+  pkgs.lib.overrideDerivation drv.env (old: {
+    name = "lovelace-env";
+    buildInputs = old.buildInputs ++ [ pkgs.cabal-install ];
+    shellHook = ''
+      echo Entering the Nix environment for Lovelace...
+      # nix --version
+      # ghc --version
+      # ghci -ghci-script ghci-nix-shell.conf
+    '';
+  })
+
