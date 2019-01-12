@@ -68,8 +68,9 @@ class Task t where
 -- current state. I.e. the task can be seen as a function (k -> IO k).
 data TaskOrPure o t k = Task t | Pure (o -> k -> (o, k))
 
---- | Similar to `Either` but makes things more clear.
-data TaskOrToken t k = Task' t | Token k
+-- | Represent the result of an activity: either a token, or a task. In that
+-- case, the input token is provided.
+data TaskOrToken t k = Task' k t | Token k
   deriving Show
 
 class Token k g where
@@ -125,7 +126,7 @@ step w@Workflow{..} a r k =
   case activityHandler a of
     Pure f -> let (r', k') = f r k
               in Step w a r' (Token k')
-    Task t -> Step w a r (Task' t)
+    Task t -> Step w a r (Task' k t)
 
 -- | Run a workflow, from start to finish.
 -- Running a workflow steps through the activities and handle tasks fired by
@@ -145,34 +146,33 @@ runs handler engineState w r k = run_ [] handler engineState w r k
 run_ :: (Eq g, Show k, Token k g) =>
   [Step o t k g] -> (t -> s -> k -> IO (s, k)) -> s
   -> Workflow o t k g -> o -> k -> IO [Step o t k g]
-run_ acc handler engineState w r k = loop acc engineState (start w r k) k
+run_ acc handler engineState w r k = loop acc engineState (start w r k)
 
   where
 
-  loop acc s (Step _ a r' t) k = do
+  loop acc s (Step _ a r' t) = do
     putStr $ activityName a
     putStr " - "
     putStrLn $ activityDescription a
     -- Run the task, if any, returned by the step.
     (s', t') <- case t of
-      Task' task -> handler task s k
+      Task' k task -> handler task s k
       Token k' -> return (s, k')
     let acc' = Step w a r' (Token t') : acc
     if final w a
       then return (reverse acc')
-      else loop acc' s' (continue w a r' t') t'
+      else loop acc' s' (continue w a r' t')
 
 -- | Run a workflow as far as possible but without processing tasks.
 -- In other words, continue as long as activities result in tokens.
 -- Once a task is reached or a final activity is reached, this stops.
--- Also return the last token produced.
-run' :: (Eq g, Show k, Token k g) => Step o t k g -> k -> (Step o t k g, k)
-run' s@(Step w a r t) k =
+run' :: (Eq g, Show k, Token k g) => Step o t k g -> Step o t k g
+run' s@(Step w a r t) =
   if final w a
-    then (s, k)
+    then s
     else case t of
-      Task' _ -> (s, k)
-      Token k' -> run' (continue w a r k') k'
+      Task' _ _ -> s
+      Token k' -> run' (continue w a r k')
 
 -- | Find the next activity, given the current activity and a token.
 lookupActivity :: (Eq g, Token k g) =>
@@ -197,7 +197,7 @@ serialize :: Task t => Step Object t k g -> Object
 serialize (Step w a r t) =
   H.insert "workflow_name" (f $ workflowName w)
   . H.insert "current_activity" (f $ activityName a)
-  . (case t of { Task' x -> H.insert "waiting_task" (f $ serializeTask x) ; _ -> H.delete "waiting_task" })
+  . (case t of { Task' _ x -> H.insert "waiting_task" (f $ serializeTask x) ; _ -> H.delete "waiting_task" })
   $ r
   where f = String . T.pack
 
