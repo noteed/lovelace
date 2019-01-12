@@ -21,7 +21,7 @@ in
     name = "lovelace-env";
     buildInputs = old.buildInputs ++ [ pkgs.cabal-install ];
     shellHook = ''
-      echo Entering the Nix environment for Lovelace...
+      # echo Entering the Nix environment for Lovelace...
       # nix --version
       # ghc --version
       # ghci -ghci-script ghci-nix-shell.conf

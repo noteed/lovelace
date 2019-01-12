@@ -132,28 +132,25 @@ step w@Workflow{..} a r k =
 -- Running a workflow steps through the activities and handle tasks fired by
 -- activities, if any.
 -- The function to run a task can modify the engine state.
-run :: (Eq g, Show k, Token k g) =>
-  (t -> s -> k -> IO (s, k)) -> s -> Workflow o t k g -> o -> k -> IO (Step o t k g)
+run :: (Eq g, Show k, Token k g, Monad m) =>
+  (t -> s -> k -> m (s, k)) -> s -> Workflow o t k g -> o -> k -> m (Step o t k g)
 run handler engineState w r k = runs handler engineState w r k >>= return . last
 
 -- | Return all the steps.
-runs :: (Eq g, Show k, Token k g) =>
-  (t -> s -> k -> IO (s, k)) -> s -> Workflow o t k g -> o -> k -> IO [Step o t k g]
+runs :: (Eq g, Show k, Token k g, Monad m) =>
+  (t -> s -> k -> m (s, k)) -> s -> Workflow o t k g -> o -> k -> m [Step o t k g]
 runs handler engineState w r k = run_ [] handler engineState w r k
 
 -- | Return all the steps.
 -- The accumulator is used to remember all the past steps.
-run_ :: (Eq g, Show k, Token k g) =>
-  [Step o t k g] -> (t -> s -> k -> IO (s, k)) -> s
-  -> Workflow o t k g -> o -> k -> IO [Step o t k g]
+run_ :: (Eq g, Show k, Token k g, Monad m) =>
+  [Step o t k g] -> (t -> s -> k -> m (s, k)) -> s
+  -> Workflow o t k g -> o -> k -> m [Step o t k g]
 run_ acc handler engineState w r k = loop acc engineState (start w r k)
 
   where
 
   loop acc s (Step _ a r' t) = do
-    putStr $ activityName a
-    putStr " - "
-    putStrLn $ activityDescription a
     -- Run the task, if any, returned by the step.
     (s', t') <- case t of
       Task' k task -> handler task s k
