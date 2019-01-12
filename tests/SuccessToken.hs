@@ -2,27 +2,23 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-} -- For instance Task String
--- | The identity workflow. This is also an example of a single Pure activity.
-module Identity where
+-- | Example for a single Pure activity.
+module SuccessToken where
 
 import Data.Aeson
 import Data.Aeson.Types (Pair)
 import qualified Data.HashMap.Strict as H
 import Data.Maybe (fromJust)
 import qualified Data.Scientific as Sc
-import System.Environment (getArgs)
 
 import Lovelace hiding (run)
 import qualified Lovelace (run)
 import StringWorkflows
 
-
--------------------------------------------------------------------------------
 -- | Run the example workflow.
 main :: IO ()
 main = do
-  [arg] <- getArgs
-  s <- Lovelace.run handler () workflow () arg
+  s <- Lovelace.run handler () workflow () "START"
   print s
   return ()
 
@@ -30,9 +26,9 @@ main = do
 -- Example workflow.
 ----------------------------------------------------------------------
 
-single = Activity "DONE"
-  "Running DONE..."
-  (Pure $ \s k -> (s, k))
+single = Activity "A"
+  "Running A..."
+  (Pure $ \s k -> (s, "SUCCESS"))
 
 workflow :: Workflow () String String String
 workflow = Workflow "pure" single [] [single]

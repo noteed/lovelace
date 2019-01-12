@@ -11,6 +11,7 @@ import System.Exit (exitFailure, exitSuccess)
 
 import Lovelace
 import qualified Identity
+import qualified SuccessToken
 
 
 -- Note: don't confuse the two Identity above: there the Identity monad to run
@@ -42,6 +43,8 @@ properties = testGroup "Properties" [qcProps, scProps]
 qcProps = testGroup "Checked by QuickCheck"
   [ QC.testProperty "identity x == x" $
       \x -> runPure Identity.handler Identity.workflow x == x
+  , QC.testProperty "success x == \"SUCCESS\"" $
+      \x -> runPure SuccessToken.handler SuccessToken.workflow x == "SUCCESS"
   ]
 
 scProps = testGroup "Checked by SmallCheck"
