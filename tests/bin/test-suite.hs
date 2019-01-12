@@ -13,6 +13,7 @@ import Lovelace
 import qualified Identity
 import qualified SuccessToken
 import qualified SuccessTask
+import qualified Loop
 
 
 -- Note: don't confuse the two Identity above: there the Identity monad to run
@@ -29,8 +30,14 @@ main = defaultMain tests
 -- | Helper to run pure workflows (pure handlers, no engine state, no object
 -- state).
 runPure handler workflow input =
-  case stepResult (runIdentity (run handler () workflow () input)) of
+  case stepResult (fst (runIdentity (run handler () workflow () input))) of
     Token k -> k
+    _ -> error "Workflow doesn't terminate with a token."
+
+runPure' handler s workflow r input =
+  let (x, st) = runIdentity (run handler s workflow r input) in
+  case stepResult x of
+    Token k -> (k, st)
     _ -> error "Workflow doesn't terminate with a token."
 
 
@@ -56,6 +63,7 @@ scProps = testGroup "Checked by SmallCheck"
   ]
 
 unitTests = testGroup "Unit tests"
-  [ testCase "identity hello == hello" $
-      runPure Identity.handler Identity.workflow "hello"  @=? "hello"
+  [ testCase "loop ends with 0" $
+      runPure' Loop.handler 3 Loop.workflow Loop.count0 "START"
+      @=? ("SUCCESS", 0)
   ]

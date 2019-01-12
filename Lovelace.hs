@@ -133,19 +133,21 @@ step w@Workflow{..} a r k =
 -- activities, if any.
 -- The function to run a task can modify the engine state.
 run :: (Eq g, Show k, Token k g, Monad m) =>
-  (t -> s -> k -> m (s, k)) -> s -> Workflow o t k g -> o -> k -> m (Step o t k g)
-run handler engineState w r k = runs handler engineState w r k >>= return . last
+  (t -> s -> k -> m (s, k)) -> s -> Workflow o t k g -> o -> k -> m (Step o t k g, s)
+run handler engineState w r k = do
+  (ss, s) <- runs handler engineState w r k
+  return (last ss, s)
 
 -- | Return all the steps.
 runs :: (Eq g, Show k, Token k g, Monad m) =>
-  (t -> s -> k -> m (s, k)) -> s -> Workflow o t k g -> o -> k -> m [Step o t k g]
+  (t -> s -> k -> m (s, k)) -> s -> Workflow o t k g -> o -> k -> m ([Step o t k g], s)
 runs handler engineState w r k = run_ [] handler engineState w r k
 
 -- | Return all the steps.
 -- The accumulator is used to remember all the past steps.
 run_ :: (Eq g, Show k, Token k g, Monad m) =>
   [Step o t k g] -> (t -> s -> k -> m (s, k)) -> s
-  -> Workflow o t k g -> o -> k -> m [Step o t k g]
+  -> Workflow o t k g -> o -> k -> m ([Step o t k g], s)
 run_ acc handler engineState w r k = loop acc engineState (start w r k)
 
   where
@@ -157,7 +159,7 @@ run_ acc handler engineState w r k = loop acc engineState (start w r k)
       Token k' -> return (s, k')
     let acc' = Step w a r' (Token t') : acc
     if final w a
-      then return (reverse acc')
+      then return (reverse acc', s)
       else loop acc' s' (continue w a r' t')
 
 -- | Run a workflow as far as possible but without processing tasks.
