@@ -1,4 +1,4 @@
--- | Example for a workflow with a single Task activity.
+-- | Example workflow with a single Task activity.
 module SuccessTask where
 
 import Lovelace
