@@ -11,13 +11,17 @@ import StringWorkflows
 main :: IO ()
 main = do
   [arg] <- getArgs
-  s <- Lovelace.run handler () workflow () arg
-  print s
+  (ss, s) <- runs handler () workflow () arg
+  writeFile "identity.log" (unlines $
+    [ "Input " ++ show arg ]
+    ++ concatMap texts ss
+    ++ [ "End of workflow." ])
+  writeFile "identity.dot" (graphviz workflow Nothing)
 
 
 -------------------------------------------------------------------------------
 workflow :: Workflow () String String String
-workflow = Workflow "pure" single [] [single]
+workflow = Workflow "identity" single [] [single]
 
 single = Activity "DONE"
   "Running DONE..."

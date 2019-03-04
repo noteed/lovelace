@@ -1,3 +1,4 @@
+-- | Orphan instances to make it easy to write example workflows.
 {-# LANGUAGE FlexibleInstances #-} -- For instance Task String
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}

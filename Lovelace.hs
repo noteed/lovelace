@@ -213,14 +213,16 @@ graphviz Workflow{..} ma = unlines $
   [ "digraph " ++ workflowName ++ " {"
   , "rankdir=LR;"
   , "size=\"8,5\""
-  , "node [shape = Mcircle];"
+  , "\"input\" [shape=point, width=0.2];"
+  , "\"output\" [shape=point, width=0.2];"
+  , "node [shape = circle, width=1, fixedsize=true];"
   ] ++
-  maybe [] (return . activityName) ma ++
-  ["node [shape = doublecircle];"
-  , unwords (map activityName (workflowInitial : workflowFinal)) ++ ";"
-  , "node [shape = circle];"
-  ] ++
+  maybe [] (return . (++ "[color=red]") . activityName) ma ++
   map f workflowTransitions ++
+  [ "input -> " ++ activityName workflowInitial
+  ]
+  ++
+  map g workflowFinal ++
   [ "}"
   ]
 
@@ -228,5 +230,16 @@ graphviz Workflow{..} ma = unlines $
 
   f (a, b, c) =
     activityName a ++ " -> " ++ activityName c ++ " [ label = " ++ show b ++ " ];"
+  g a = activityName a ++ " ->  output"
 
 graphvizs Step{..} = graphviz stepWorkflow (Just stepActivity)
+
+
+--------------------------------------------------------------------------------
+-- Text rendering
+--------------------------------------------------------------------------------
+
+texts Step{..} =
+  [ "Activity " ++ activityName stepActivity
+  , "Result " ++ show stepResult
+  ]

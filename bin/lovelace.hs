@@ -21,11 +21,12 @@ main = do
   case args of
     ["graph"] -> writeFile "example.dot" (graphviz workflow Nothing)
     _ -> do
-      ss <- runs handler () workflow (record [("count", int 0)]) "START"
+      (ss, _) <- runs handler () workflow (record [("count", int 0)]) "START"
       putStrLn "\nTrace of resulting tokens:"
       mapM_ (print . stepResult) ss
       when (args == ["--graph"]) $
-        mapM_ (\(i, s) ->
+        mapM_ (\(i, s) -> do
+          putStrLn ("Writing file example " ++ show i ++ ".dot...")
           writeFile
             ("example-" ++ show i ++ ".dot")
             (graphvizs s)) (zip [1..] ss)

@@ -1,21 +1,30 @@
 -- | Example workflow with a single Pure activity.
 module SuccessToken where
 
+import System.Environment (getArgs)
+
 import Lovelace
 import StringWorkflows
 
 
 --------------------------------------------------------------------------------
 main :: IO ()
-main = run handler () workflow () "START" >>= print
+main = do
+  [arg] <- getArgs
+  (ss, s) <- runs handler () workflow () arg
+  writeFile "success-token.log" (unlines $
+    [ "Input " ++ show arg ]
+    ++ concatMap texts ss
+    ++ [ "End of workflow." ])
+  writeFile "success-token.dot" (graphviz workflow Nothing)
 
 
 --------------------------------------------------------------------------------
 workflow :: Workflow () String String String
-workflow = Workflow "pure" single [] [single]
+workflow = Workflow "success" single [] [single]
 
-single = Activity "A"
-  "Running A..."
+single = Activity "SUCCESS"
+  "Running SUCCESS..."
   (Pure $ \s k -> (s, "SUCCESS"))
 
 handler name s k = error
