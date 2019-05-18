@@ -73,6 +73,7 @@ data TaskOrPure o t k = Task t | Pure (o -> k -> (o, k))
 data TaskOrToken t k = Task' k t | Token k
   deriving Show
 
+-- | From a token, a tag can be extracted to compare with valid transitions.
 class Token k g where
   tag :: k -> g
 
